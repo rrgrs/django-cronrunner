@@ -11,7 +11,7 @@ setup(
     license='BSD',
     packages=[
         'cronrunner',
-    ]
+    ],
     keywords = "django cron imports",
     requires=[
         'Django',
