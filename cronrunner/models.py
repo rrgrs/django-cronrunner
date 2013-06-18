@@ -19,7 +19,7 @@ class ScheduledTask(models.Model):
     last_run = models.DateTimeField(blank=True, null=True, auto_now=True)
     active = models.BooleanField()
     notes = models.TextField(blank=True, null=True)
-    
+
     file_choices = []
     for app in settings.INSTALLED_APPS:
         cron_dir = __import__(app).__file__.split('/')[:-1]
@@ -69,7 +69,7 @@ class ScheduledTask(models.Model):
             cron_new.parse('%s %s' % (self.schedule, command))
         # Write the changes
         cron.write()
-        
+
     def handle_errors(self, errors=(), text=''):
         msg = ''
         if text:
@@ -80,12 +80,12 @@ class ScheduledTask(models.Model):
                 msg += '\n%s' % error
         admins = [admin[1] for admin in settings.ADMINS]
         subject = 'There was an error while executing the lucilepackard %s scheduled task' % self.name
-        send_mail(subject, msg, settings.FROM_EMAIL, admins)
-        
+        send_mail(subject, msg, settings.EMAIL_HOST_USER, admins)
+
     def handle_success(self, extra_text=''):
         admins = [admin[1] for admin in settings.ADMINS]
         subject = 'The lucilepackard %s scheduled task completed successfully' % self.name
-        send_mail(subject, extra_text, settings.FROM_EMAIL, admins)
+        send_mail(subject, extra_text, settings.EMAIL_HOST_USER, admins)
 
     def delete(self, *args, **kwargs):
         """
@@ -102,8 +102,8 @@ class ScheduledTask(models.Model):
         else:
             status = 'Disabled'
         return '%s %s (%s)' % (self.name, self.schedule, status)
-        
-        
+
+
 class ScheduledImport(ScheduledTask):
     url = models.CharField(max_length=255)
 
