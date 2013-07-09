@@ -1,4 +1,5 @@
 import os
+import traceback
 from imp import load_source
 
 from django.db import models
@@ -41,7 +42,7 @@ class ScheduledTask(models.Model):
         Returns the command to be executed in the crontab line
         """
         if not name: name = self.name
-        p_name = 'lucilepackard_imports'
+        p_name = settings.SITE_NAME
         return "python %s/manage.py runcron %s --settings=%s.%s" % (
             os.path.join(os.path.abspath(os.path.dirname(__file__)), '..', '..', p_name),
                                                         name, p_name, os.environ['DJANGO_SETTINGS_MODULE'])
@@ -79,13 +80,13 @@ class ScheduledTask(models.Model):
             for error in errors:
                 msg += '\n%s' % error
         admins = [admin[1] for admin in settings.ADMINS]
-        subject = 'There was an error while executing the lucilepackard %s scheduled task' % self.name
-        send_mail(subject, msg, settings.EMAIL_HOST_USER, admins)
+        subject = 'There was an error while executing the %s %s scheduled task' % (settings.SITE_NAME, self.name)
+        send_mail(subject, msg, settings.EMAIL_FROM, admins)
 
     def handle_success(self, extra_text=''):
         admins = [admin[1] for admin in settings.ADMINS]
-        subject = 'The lucilepackard %s scheduled task completed successfully' % self.name
-        send_mail(subject, extra_text, settings.EMAIL_HOST_USER, admins)
+        subject = 'The %s %s scheduled task completed successfully' % (settings.SITE_NAME, self.name)
+        send_mail(subject, extra_text, settings.EMAIL_FROM, admins)
 
     def delete(self, *args, **kwargs):
         """
@@ -117,8 +118,13 @@ class ScheduledImport(ScheduledTask):
         filepath.append('cron')
         filepath = '/%s/%s.py' % (os.path.join(*filepath), file)
         m = load_source('m', filepath)
-        #import jobs returns list of unsaved jobs
-        items = m.import_items(self)
+        try:
+            #import jobs returns list of unsaved jobs
+            items = m.import_items(self)
+        except Exception, e:
+            #email traceback
+            self.handle_errors(text=traceback.format_exc())
+            return
         #check to see if returned jobs are valid, delete old jobs and save if so
         num_valid = 0
         errors = []
@@ -127,7 +133,6 @@ class ScheduledImport(ScheduledTask):
                 item.full_clean()
                 num_valid += 1
             except ValidationError, e:
-                print e.message_dict
                 errors.append(e.message_dict[NON_FIELD_ERRORS])
         # if # valid jobs equals total jobs returned, delete old jobs, save new ones
         if num_valid == len(items) and len(items) > 0:
@@ -139,10 +144,10 @@ class ScheduledImport(ScheduledTask):
                 new_ids.append(item.id)
             self.items = ','.join( (str(id) for id in new_ids) )
             self.save()
-            self.handle_success()
+            self.handle_success(extra_text='%s items imported successfully.' % ( num_valid ))
+            #update last successful run
+            self.save()
         # otherwise email errors to admin
         else:
             msg = 'Only %s of %s items validated.' % ( num_valid, len(items) )
             self.handle_errors(errors, msg)
-        #lastly update last_run
-        self.save()
