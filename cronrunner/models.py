@@ -21,21 +21,21 @@ class ScheduledTask(models.Model):
     active = models.BooleanField()
     notes = models.TextField(blank=True, null=True)
 
-    file_choices = []
+    _file_choices = []
     for app in settings.INSTALLED_APPS:
         cron_dir = __import__(app).__file__.split('/')[:-1]
         cron_dir.append('cron')
         cron_dir = '/'+os.path.join(*cron_dir)
         if not os.path.exists(cron_dir):
             continue
-        for file_name in os.listdir( cron_dir ):
+        for file_name in os.listdir(cron_dir):
             if file_name[len(file_name)-3:] == '.py':
                 choice = '%s.%s' % (app, file_name[:len(file_name)-3])
-                file_choices.append( (
+                _file_choices.append( (
                     choice,
                     choice,
                 ) )
-    script = models.CharField(max_length=100, choices=file_choices)
+    script = models.CharField(max_length=100, choices=_file_choices)
 
     def get_command(self, name=None):
         """
@@ -81,12 +81,12 @@ class ScheduledTask(models.Model):
                 msg += '\n%s' % error
         admins = [admin[1] for admin in settings.ADMINS]
         subject = 'There was an error while executing the %s %s scheduled task' % (settings.SITE_NAME, self.name)
-        send_mail(subject, msg, settings.EMAIL_FROM, admins)
+        send_mail(subject, msg, settings.EMAIL_HOST_USER, admins)
 
     def handle_success(self, extra_text=''):
         admins = [admin[1] for admin in settings.ADMINS]
         subject = 'The %s %s scheduled task completed successfully' % (settings.SITE_NAME, self.name)
-        send_mail(subject, extra_text, settings.EMAIL_FROM, admins)
+        send_mail(subject, extra_text, settings.EMAIL_HOST_USER, admins)
 
     def delete(self, *args, **kwargs):
         """
