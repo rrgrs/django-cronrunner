@@ -136,8 +136,10 @@ class ScheduledImport(ScheduledTask):
                 errors.append(e.message_dict[NON_FIELD_ERRORS])
         # if # valid jobs equals total jobs returned, delete old jobs, save new ones
         if num_valid == len(items) and len(items) > 0:
-            if self.items:
-                items[0].__class__.objects.filter(id__in=eval(self.items+',')).delete()
+            #get current data from database
+            si = self.__class__.objects.get(id=self.id)
+            if si.items:
+                items[0].__class__.objects.filter(id__in=eval(si.items+',')).delete()
             new_ids = []
             for item in items:
                 item.save()
